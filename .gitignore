@@ -3,3 +3,5 @@
 /frontend/node_modules
 /explorer/node_modules
 /tee-bridge/node_modules
+/tee-bridge/dist
+/tee-bridge/.env
