@@ -1,0 +1,5 @@
+.DS_Store
+/node_modules
+/frontend/node_modules
+/explorer/node_modules
+/tee-bridge/node_modules
