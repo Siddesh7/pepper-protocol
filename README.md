@@ -22,6 +22,12 @@ No more endless hops between chains just to buy a $JUV or $PSG token. With Peppe
 - **Unified Fan Token Portfolio:**  
   View and manage all your fan tokens across chains — especially from Chiliz — in one simple dashboard.
 
+## 📜 Contract Addresses
+
+- **pepperLockUnlockBridgeAddress**: `0x2d679dC3fF82E147C39fDC8E3221dbBad15d82BF`
+- **pepperMintBurnBridgeAddress**: `0xf4764D00e6F17D4bEE83dA813a49750691c61e57`
+- **pWETHAddress**: `0xD5626e2BfFf7d877F5a3D37eEF4A50aB62b2C152`
+
 ---
 
 ## 🧠 Why Pepper?
@@ -32,4 +38,4 @@ We’re building Pepper Protocol to remove the friction and let fans focus on wh
 
 ---
 
-*Built for sports fans. Backed by cross-chain tech. Ready for the future of fan finance.*
+_Built for sports fans. Backed by cross-chain tech. Ready for the future of fan finance._
