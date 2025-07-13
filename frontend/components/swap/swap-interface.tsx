@@ -3,8 +3,10 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowUpDown, TrendingUp, Zap } from "lucide-react";
-import { TokenSelector } from "./token-selector";
 import { SwapQuote, Token } from "@/types/global";
+import { useAccount } from "wagmi";
+import { useWriteContract } from "wagmi";
+import { PEPPER_LOCK_UNLOCK_BRIDGE_ABI } from "@/lib/pepper-lock-unlock-bridge.abi";
 
 interface SwapInterfaceProps {
   fromToken: Token | null;
@@ -19,6 +21,11 @@ interface SwapInterfaceProps {
   isLoading: boolean;
 }
 
+const PEPPER_LOCK_UNLOCK_BRIDGE_ADDRESS =
+  "0x2d679dC3fF82E147C39fDC8E3221dbBad15d82BF";
+const BASE_SEPOLIA_CHAIN_ID = 84532;
+const CHILIZ_SPICY_CHAIN_ID = 88882;
+
 const SwapInterface: React.FC<SwapInterfaceProps> = ({
   fromToken,
   setFromToken,
@@ -31,26 +38,59 @@ const SwapInterface: React.FC<SwapInterfaceProps> = ({
   quote,
   isLoading,
 }) => {
-  // UI-specific state only
   const [isSwapping, setIsSwapping] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // UI-specific functions
-  const flipTokens = () => {
-    setFromToken(toToken);
-    setToToken(fromToken);
-    setFromAmount(toAmount);
-    setToAmount(fromAmount);
-  };
+  const { address } = useAccount();
+  const { writeContractAsync } = useWriteContract();
 
   const handleSwap = async () => {
     setIsSwapping(true);
+    setError(null);
+    setShowSuccess(false);
+    console.log("handleSwap called");
+    try {
+      if (!fromToken || !fromAmount) throw new Error("Enter amount");
+      console.log("Wallet address:", address);
+      // Optionally, log network info if available
+      // console.log("Network:", network);
 
-    setTimeout(() => {
+      const destinationChainId = CHILIZ_SPICY_CHAIN_ID;
+      const amount = BigInt(Math.floor(Number(fromAmount) * 1e18));
+
+      console.log("Preparing to call writeContractAsync", {
+        amount,
+        destinationChainId,
+        contract: PEPPER_LOCK_UNLOCK_BRIDGE_ADDRESS,
+        abi: PEPPER_LOCK_UNLOCK_BRIDGE_ABI,
+        chainId: BASE_SEPOLIA_CHAIN_ID,
+      });
+
+      // Add a timeout fallback in case the contract call hangs
+      const contractPromise = writeContractAsync({
+        address: PEPPER_LOCK_UNLOCK_BRIDGE_ADDRESS,
+        abi: PEPPER_LOCK_UNLOCK_BRIDGE_ABI,
+        functionName: "lock",
+        args: [amount, destinationChainId],
+        chainId: BASE_SEPOLIA_CHAIN_ID,
+      });
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Contract call timed out")), 20000)
+      );
+
+      const result = await Promise.race([contractPromise, timeoutPromise]);
+      console.log("Contract call result:", result);
+
       setIsSwapping(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-    }, 2000);
+    } catch (err: any) {
+      console.error("Swap error:", err);
+      setIsSwapping(false);
+      setError(err?.message || "Swap failed");
+    }
   };
 
   return (
@@ -67,24 +107,25 @@ const SwapInterface: React.FC<SwapInterfaceProps> = ({
             Swap
           </h2>
         </div>
-
         <div className="space-y-4">
-          {/* From Token */}
+          {/* From Token (fixed WETH) */}
           <motion.div
             whileHover={{ scale: 1.02 }}
             className="bg-white/5 rounded-2xl p-4 border border-white/10"
           >
-            {/* Token Selector above input */}
-            <TokenSelector
-              selectedToken={fromToken}
-              onTokenSelect={setFromToken}
-            />
-            {/* Balance below selector, above input */}
+            <div className="flex items-center gap-2 mb-2">
+              <img
+                src={fromToken?.logoURI}
+                alt={fromToken?.symbol}
+                className="w-6 h-6 rounded-full"
+              />
+              <span className="font-semibold text-white">
+                {fromToken?.symbol}
+              </span>
+            </div>
             <div className="flex justify-between items-center mb-2 mt-2">
               <span className="text-sm text-white/70">From</span>
-              <span className="text-sm text-white/70">Balance: 1,250.45</span>
             </div>
-            {/* Input below balance */}
             <input
               type="number"
               value={fromAmount}
@@ -95,43 +136,36 @@ const SwapInterface: React.FC<SwapInterfaceProps> = ({
               step="any"
             />
           </motion.div>
-
-          {/* Swap Button */}
-          <div className="flex justify-center">
-            <motion.button
-              onClick={flipTokens}
-              whileHover={{ scale: 1.1, rotate: 180 }}
-              whileTap={{ scale: 0.9 }}
-              className="p-3 rounded-full bg-gradient-to-r from-green-500 to-blue-500 text-white shadow-lg"
-            >
-              <ArrowUpDown className="w-5 h-5" />
-            </motion.button>
-          </div>
-
-          {/* To Token */}
+          {/* To Token (fixed pWETH) */}
           <motion.div
             whileHover={{ scale: 1.02 }}
             className="bg-white/5 rounded-2xl p-4 border border-white/10"
           >
-            <TokenSelector selectedToken={toToken} onTokenSelect={setToToken} />
+            <div className="flex items-center gap-2 mb-2">
+              <img
+                src={toToken?.logoURI}
+                alt={toToken?.symbol}
+                className="w-6 h-6 rounded-full"
+              />
+              <span className="font-semibold text-white">
+                {toToken?.symbol}
+              </span>
+            </div>
             <div className="flex justify-between items-center mb-2 mt-2">
               <span className="text-sm text-white/70">To</span>
-              <span className="text-sm text-white/70">Balance: 89.12</span>
             </div>
-
             <input
               type="number"
               value={toAmount}
-              onChange={(e) => setToAmount(e.target.value)}
+              readOnly
               placeholder="0.0"
-              className="w-full bg-transparent text-2xl font-bold text-white placeholder-white/40 outline-none border border-white/20 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 transition-all [appearance:textfield]"
+              className="w-full bg-transparent text-2xl font-bold text-white placeholder-white/40 outline-none border border-white/20 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 transition-all [appearance:textfield] opacity-60 cursor-not-allowed"
               inputMode="decimal"
               step="any"
             />
           </motion.div>
         </div>
-
-        {/* Price Info */}
+        {/* Fixed 1:1 Rate Info */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -141,12 +175,11 @@ const SwapInterface: React.FC<SwapInterfaceProps> = ({
           <div className="flex items-center justify-between text-sm">
             <span className="text-white/70">Rate</span>
             <span className="text-white flex items-center gap-1">
-              1 {fromToken?.symbol} = 2.45 {toToken?.symbol}
+              1 {fromToken?.symbol} = 1 {toToken?.symbol}
               <TrendingUp className="w-4 h-4 text-green-400" />
             </span>
           </div>
         </motion.div>
-
         {/* Swap Button */}
         <motion.button
           onClick={handleSwap}
@@ -181,7 +214,12 @@ const SwapInterface: React.FC<SwapInterfaceProps> = ({
             )}
           </AnimatePresence>
         </motion.button>
-
+        {/* Error Message */}
+        {error && (
+          <div className="mt-4 p-4 bg-red-500/20 border border-red-500/30 rounded-xl text-center">
+            <span className="text-red-400 font-semibold">{error}</span>
+          </div>
+        )}
         {/* Success Message */}
         <AnimatePresence>
           {showSuccess && (
